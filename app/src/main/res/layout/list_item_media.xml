@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="12dp"
+    android:background="?android:attr/selectableItemBackground">
+
+    <ImageView
+        android:id="@+id/ivMediaIcon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:srcCompat="@android:drawable/ic_media_play" />
+
+    <TextView
+        android:id="@+id/tvMediaTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+    android:textSize="16sp"
+    android:textStyle="bold"
+    android:maxLines="1"
+    android:ellipsize="end"
+    app:layout_constraintStart_toEndOf="@+id/ivMediaIcon"
+    app:layout_constraintEnd_toStartOf="@+id/ibDeleteItem"
+    app:layout_constraintTop_toTopOf="@+id/ivMediaIcon"
+    tools:text="Awesome Music Track Title" />
+
+    <TextView
+        android:id="@+id/tvMediaDescription"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintStart_toStartOf="@+id/tvMediaTitle"
+        app:layout_constraintEnd_toEndOf="@+id/tvMediaTitle"
+    app:layout_constraintTop_toBottomOf="@+id/tvMediaTitle"
+    app:layout_constraintBottom_toBottomOf="@+id/ivMediaIcon"
+    tools:text="MUSIC - Public" />
+
+    <!-- THÊM NÚT XÓA -->
+    <ImageButton
+        android:id="@+id/ibDeleteItem"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp"
+        android:src="@android:drawable/ic_menu_delete"
+    android:contentDescription="Delete Item"
+    android:visibility="gone"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintBottom_toBottomOf="parent"
+    tools:visibility="visible"/>
+    <!-- ************** -->
+
+</androidx.constraintlayout.widget.ConstraintLayout>

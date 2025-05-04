@@ -1,0 +1,38 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <!-- Theme gốc này đã là NoActionBar, có thể dùng luôn cho WelcomeActivity -->
+    <style name="Base.Theme.StreamApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- Ví dụ đặt màu chính -->
+        <item name="colorPrimary">@color/indigo_primary</item>
+        <item name="colorPrimaryVariant">@color/indigo_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <!-- Màu phụ (nếu cần) -->
+        <item name="colorSecondary">@color/purple_200</item>
+        <item name="colorSecondaryVariant">@color/purple_700</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <!-- Màu nền mặc định -->
+        <item name="android:colorBackground">@color/white</item>
+        <!-- Màu thanh trạng thái -->
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+    </style>
+
+    <!-- Theme cho Player Activity (đã có) -->
+    <style name="Theme.StreamApp.Player" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <!-- Theme kế thừa từ Base -->
+    <style name="Theme.StreamApp" parent="Base.Theme.StreamApp" />
+
+    <!-- (TÙY CHỌN) Theme riêng cho WelcomeActivity nếu muốn khác Base -->
+    <!-- Bạn có thể dùng trực tiếp Theme.StreamApp (là NoActionBar rồi) -->
+    <!-- Hoặc tạo theme riêng nếu muốn thanh trạng thái trong suốt chẳng hạn -->
+    <style name="Theme.StreamApp.Welcome" parent="Theme.StreamApp">
+        <!-- Ví dụ: làm thanh trạng thái trong suốt -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item> <!-- Chữ trên status bar màu trắng -->
+        <!-- Đảm bảo layout WelcomeActivity có android:fitsSystemWindows="true" nếu cần -->
+    </style>
+
+</resources>

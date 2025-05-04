@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Màu cơ bản -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Màu Tím (Ví dụ, bạn có thể chọn mã màu chính xác hơn) -->
+    <color name="purple_200">#FFBB86FC</color> <!-- Màu tím nhạt hơn -->
+    <color name="purple_500">#FF6200EE</color> <!-- Màu tím chính (thường dùng làm primary) -->
+    <color name="purple_700">#FF3700B3</color> <!-- Màu tím đậm hơn (thường dùng làm primaryVariant/statusBar) -->
+
+    <!-- Màu Xanh Dương/Tím (Gần giống trong ảnh welcome) -->
+    <color name="indigo_dark">#303F9F</color>
+    <color name="indigo_primary">#3F51B5</color>
+    <color name="indigo_light">#C5CAE9</color>
+    <color name="blue_grey_dark">#455A64</color>
+    <color name="blue_grey_primary">#607D8B</color>
+
+    <!-- Màu bạn yêu cầu (có thể giữ lại hoặc thay thế bằng các màu trên) -->
+    <!-- <color name="purple_500_old">#9C27B0</color> -->
+    <!-- <color name="purple_200_old">#CE93D8</color> -->
+
+    <!-- Màu cho các nút trong Welcome Screen -->
+    <color name="welcome_button_signup_text">@color/indigo_primary</color> <!-- Màu chữ nút Sign Up -->
+    <color name="welcome_button_login_background">#5A71C1</color> <!-- Màu nền nút Login (hơi khác primary) -->
+
+</resources>
