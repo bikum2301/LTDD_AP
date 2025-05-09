@@ -472,7 +472,11 @@ public class ProfileActivity extends AppCompatActivity {
             binding.tilBio.setEnabled(!isLoading);
             binding.btnSaveProfile.setEnabled(!isLoading);
             // Giữ ImageView enable để có thể nhấn Change Picture
-            // binding.ivProfilePic.setEnabled(!isLoading);
+            // binding.ivProfilePic.setEn
+            //
+            //
+            //
+            // abled(!isLoading);
         });
     }
 

@@ -8,46 +8,67 @@
     android:background="@drawable/welcome_background_gradient"
     tools:context=".activity.WelcomeActivity">
 
-    <!-- Logo -->
-    <ImageView
-        android:id="@+id/ivLogo"
-        android:layout_width="200dp"
-    android:layout_height="200dp"
-    android:src="@drawable/ic_music_note_large"
-    app:layout_constraintBottom_toTopOf="@+id/guideline_center"
-    app:layout_constraintEnd_toEndOf="parent"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintTop_toTopOf="parent"
-    app:layout_constraintVertical_bias="0.7"
-    android:contentDescription="App Logo"
-    android:scaleType="fitCenter"
-    app:tint="@color/white"
-    />
-
-
-
+    <!-- Guideline -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_center"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.5"/>
+        app:layout_constraintGuide_percent="0.45"/>
 
-    <!-- Slogan -->
+    <!-- CardView chứa Lottie -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardLottieBackground"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="25dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="#40FFFFFF"
+        app:layout_constraintBottom_toTopOf="@+id/guideline_center"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.9"
+        android:alpha="0"
+        android:translationY="-50dp"
+        >
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/lottieAnimationView"
+            android:layout_width="300dp"
+            android:layout_height="300dp"
+            android:layout_gravity="center"
+            android:padding="16dp"
+            app:lottie_rawRes="@raw/video_animation"
+            app:lottie_loop="true"
+            app:lottie_autoPlay="true"
+            android:scaleType="centerInside"
+            />
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Slogan (Vị trí mới và font mới) -->
     <TextView
         android:id="@+id/tvSlogan"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-    android:text="Stay in Shape, Stay Healthy"
-    android:textColor="@color/white"
-    android:textSize="16sp"
-    app:layout_constraintEnd_toEndOf="@+id/ivLogo"
-    app:layout_constraintStart_toStartOf="@+id/ivLogo"
-    app:layout_constraintTop_toBottomOf="@+id/ivLogo" />
+        android:text="Stay in Shape, Stay Healthy"
+        android:textColor="@color/white"
+        android:textSize="50sp"
+        android:fontFamily="@font/alex_brush_regular"
+        android:textAlignment="center"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/cardLottieBackground"
+        app:layout_constraintBottom_toTopOf="@+id/llButtons"
+        app:layout_constraintVertical_bias="0.5"
+        android:alpha="0"
+        android:translationY="50dp"
+    />
 
-    <!-- LinearLayout chứa 2 nút -->
+    <!-- LinearLayout chứa 2 nút (Thêm icon) -->
     <LinearLayout
+        android:id="@+id/llButtons"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -56,29 +77,42 @@
         android:layout_marginEnd="32dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        android:alpha="0"
+        android:translationY="100dp"
+        >
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGoToSignUp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="SIGN UP"
-            android:textColor="@color/welcome_button_signup_text"
-            app:backgroundTint="@color/white"
-            app:cornerRadius="20dp"
-            android:layout_marginEnd="8dp"/>
+            style="@style/Widget.Material3.Button.ElevatedButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="SIGN UP"
+        android:textColor="@color/welcome_button_signup_text"
+        app:backgroundTint="@color/white"
+        app:cornerRadius="20dp"
+        app:icon="@drawable/ic_signup"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
+        app:iconTint="@color/welcome_button_signup_text"
+        android:layout_marginEnd="8dp"/>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGoToLogin"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="LOGIN"
-            android:textColor="@color/white"
-            app:backgroundTint="@color/welcome_button_login_background"
-            app:cornerRadius="20dp"
-            android:layout_marginStart="8dp"/>
+            style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="LOGIN"
+        android:textColor="@color/white"
+        app:backgroundTint="@color/welcome_button_login_background"
+        app:cornerRadius="20dp"
+        app:icon="@drawable/ic_login"
+        app:iconGravity="textEnd"
+        app:iconPadding="8dp"
+        app:iconTint="@color/white"
+        android:layout_marginStart="8dp"/>
 
     </LinearLayout>
 
