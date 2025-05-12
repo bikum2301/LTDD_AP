@@ -16,8 +16,9 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:show_buffering="when_playing"
-    app:show_shuffle_button="false"
-    app:use_controller="true" />
+        app:show_shuffle_button="false"
+        app:use_controller="true" />
+
     <TextView
         android:id="@+id/tvPlayerTitle"
         android:layout_width="0dp"
@@ -31,4 +32,43 @@
     app:layout_constraintEnd_toEndOf="parent"
     tools:text="Media Title Goes Here"/>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- THÊM CÁC VIEW SAU CHO HIỂN THỊ LỖI -->
+    <LinearLayout
+        android:id="@+id/layoutPlayerError"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="16dp"
+        android:visibility="gone"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    tools:visibility="visible">
+
+    <ImageView
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/ic_error_outline_24"
+    app:tint="@android:color/darker_gray"
+    android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/tvPlayerErrorMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="16sp"
+        android:textAlignment="center"
+        tools:text="Could not play video. Please try again." />
+
+    <Button
+        android:id="@+id/btnPlayerRetry"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Retry" />
+</LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>

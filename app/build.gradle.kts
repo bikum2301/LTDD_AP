@@ -45,41 +45,42 @@ android {
 }
 
 dependencies {
+    implementation("androidx.appcompat:appcompat:1.6.1") // Hoặc phiên bản mới hơn
+    implementation("com.google.android.material:material:1.12.0") // Hoặc phiên bản mới hơn
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4") // Hoặc phiên bản mới hơn
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0") // Cho Pull-to-Refresh
 
-    implementation(libs.appcompat)
-    implementation(libs.material)
-    implementation(libs.activity)
-    implementation(libs.constraintlayout)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
+    // ViewModel and LiveData (Nếu bạn dùng cho quản lý trạng thái phức tạp hơn)
+    // implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    // implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
 
-    // Retrofit, OkHttp, RecyclerView, Preferences (dùng chuỗi hoặc libs nếu có)
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.9.3") // Cân nhắc cập nhật
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    // Retrofit & Gson (Cho Networking)
+    implementation("com.squareup.retrofit2:retrofit:2.9.0") // Hoặc 2.11.0
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0") // Hoặc 2.11.0
+    implementation("com.google.code.gson:gson:2.10.1") // Hoặc phiên bản mới hơn
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // Hoặc phiên bản OkHttp3 mới nhất
+
+    // Glide (Cho tải ảnh)
+    implementation("com.github.bumptech.glide:glide:4.16.0") // Hoặc phiên bản mới nhất
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+
+    // CircleImageView (Cho ảnh đại diện tròn)
+    implementation("de.hdodenhof:circleimageview:3.1.0")
+
+    // Lottie (Cho animation ở WelcomeActivity)
+    implementation("com.airbnb.android:lottie:6.1.0") // Hoặc phiên bản mới nhất
+
+    // ExoPlayer (Kiểm tra và sử dụng phiên bản mới nhất ổn định)
+    implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
+    implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
+    implementation("com.google.android.exoplayer:extension-mediasession:2.19.1")
+
+    // SharedPreferences (đã có sẵn trong Android SDK, nhưng nếu dùng androidx.preference)
     implementation("androidx.preference:preference-ktx:1.2.1")
 
-    // **XÓA HOẶC COMMENT DÒNG NÀY:** Dependency tổng hợp cũ
-    // implementation("com.google.android.exoplayer:exoplayer:2.18.1")
 
-    // Glide
-    implementation("com.github.bumptech.glide:glide:4.15.1") // Cân nhắc cập nhật
-    // Dùng annotationProcessor cho Java, hoặc kapt cho Kotlin
-    annotationProcessor("com.github.bumptech.glide:compiler:4.15.1")
-    // Nếu dùng Kotlin:
-    // kapt("com.github.bumptech.glide:compiler:4.15.1")
-
-    // ExoPlayer dependencies - Sử dụng biến đã khai báo ở trên
-    implementation("com.google.android.exoplayer:exoplayer-core:$exoplayerVersion")
-    implementation("com.google.android.exoplayer:exoplayer-ui:$exoplayerVersion")
-
-    // Thêm các module khác nếu cần
-    implementation("com.google.android.exoplayer:exoplayer-dash:$exoplayerVersion")
-    implementation("com.google.android.exoplayer:exoplayer-hls:$exoplayerVersion")
-    implementation("com.google.android.exoplayer:exoplayer-smoothstreaming:$exoplayerVersion")
-    implementation("com.facebook.shimmer:shimmer:0.5.0")
-    implementation("de.hdodenhof:circleimageview:3.1.0")
-    implementation("com.airbnb.android:lottie:6.4.0")
+    // Test Implementations
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }

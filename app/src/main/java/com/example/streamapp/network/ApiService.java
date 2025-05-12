@@ -1,6 +1,7 @@
+// File: src/main/java/com/example/streamapp/network/ApiService.java
 package com.example.streamapp.network;
 
-import com.example.streamapp.model.*; // Import các model đã tạo
+import com.example.streamapp.model.*; // Import các model của client
 
 import java.util.List;
 
@@ -24,48 +25,46 @@ public interface ApiService {
     // --- Media ---
     @Multipart
     @POST("api/media/upload")
-    Call<MessageResponse> uploadMedia(
-            @Header("Authorization") String authToken, // Token tự thêm bởi Interceptor, nhưng để đây cho rõ
-            @Part MultipartBody.Part file,
-            @Part("data") RequestBody mediaData
+    Call<MediaResponse> uploadMedia( // << SỬA TỪ Call<MessageResponse> THÀNH Call<MediaResponse>
+                                     @Part MultipartBody.Part file,
+                                     @Part("data") RequestBody mediaData
     );
 
     @GET("api/media")
-    Call<List<MediaResponse>> getUserMedia(@Header("Authorization") String authToken); // Cần token
+    Call<List<MediaResponse>> getUserMedia(); // BỎ authToken
 
     @GET("api/media/public")
-    Call<List<MediaResponse>> getPublicMedia(); // Có thể cần hoặc không cần token
+    Call<List<MediaResponse>> getPublicMedia(@Query("type") String mediaType); // Thêm tham số type
+
+    @GET("api/media/public") // Overload nếu không muốn truyền type
+    Call<List<MediaResponse>> getPublicMedia();
 
     @GET("api/media/{id}")
     Call<MediaResponse> getMediaDetails(
-            @Header("Authorization") String authToken, // Cần token
+            // BỎ authToken
             @Path("id") Long mediaId
     );
 
     @DELETE("api/media/{id}")
     Call<MessageResponse> deleteMedia(
-            @Header("Authorization") String authToken, // Cần token
+            // BỎ authToken
             @Path("id") Long mediaId
     );
 
     // --- User Profile ---
-
-    // **** THÊM API GET PROFILE ****
-    // Giả sử API trả về đối tượng UserProfileResponse (cần tạo model này)
-    @GET("api/user/profile")
-    Call<UserProfileResponse> getUserProfile(@Header("Authorization") String authToken); // Cần token
-    // ******************************
+    @GET("api/user/profile") // Đã thêm ở backend controller
+    Call<UserProfileResponse> getUserProfile(); // BỎ authToken
 
     @PUT("api/user/profile")
     Call<MessageResponse> updateProfile(
-            @Header("Authorization") String authToken, // Cần token
+            // BỎ authToken
             @Body ProfileUpdateRequest profileUpdateRequest
     );
 
     @Multipart
     @POST("api/user/upload-profile-picture")
     Call<MessageResponse> uploadProfilePicture(
-            @Header("Authorization") String authToken, // Cần token
+            // BỎ authToken
             @Part MultipartBody.Part file
     );
 }

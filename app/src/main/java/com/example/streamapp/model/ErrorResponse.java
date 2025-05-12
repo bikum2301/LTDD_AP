@@ -1,11 +1,11 @@
 package com.example.streamapp.model;
 
-// Class này dùng để parse body của response khi API trả về lỗi (status != 2xx)
 public class ErrorResponse {
-    private String timestamp; // Hoặc LocalDateTime nếu cấu hình Gson phù hợp
+    // Các trường phải khớp với ErrorResponse của backend
+    private String timestamp;
     private int status;
-    private String error;
-    private String message; // Thông điệp lỗi chính
+    private String error;   // Tên lỗi chung
+    private String message; // Message chi tiết
     private String path;
 
     // Getters

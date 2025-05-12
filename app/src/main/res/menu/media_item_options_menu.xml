@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_media_share"
+        android:title="Share" />
+    <item
+        android:id="@+id/action_media_delete"
+        android:title="Delete" />
+    <!-- Add other options here if needed -->
+</menu>

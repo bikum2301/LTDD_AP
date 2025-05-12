@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">192.168.1.152</domain>
+        <!-- Ví dụ: -->
+        <!-- <domain includeSubdomains="true">192.168.1.100</domain> -->
+        <!-- Nếu bạn muốn cho phép localhost cho emulator (không dùng cho điện thoại thật khi kết nối qua IP) -->
+        <!-- <domain includeSubdomains="true">10.0.2.2</domain> -->
+        <!-- <domain includeSubdomains="true">localhost</domain> -->
+    </domain-config>
+    <!-- (Tùy chọn) Cấu hình cơ sở cho các kết nối khác nếu cần -->
+    <!-- <base-config cleartextTrafficPermitted="false"> -->
+    <!-- <trust-anchors> -->
+    <!-- <certificates src="system" /> -->
+    <!-- </trust-anchors> -->
+    <!-- </base-config> -->
+</network-security-config>

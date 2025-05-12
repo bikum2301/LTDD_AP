@@ -24,4 +24,6 @@
     <color name="welcome_button_signup_text">@color/indigo_primary</color> <!-- Màu chữ nút Sign Up -->
     <color name="welcome_button_login_background">#5A71C1</color> <!-- Màu nền nút Login (hơi khác primary) -->
 
+    <color name="placeholder_color">#E0E0E0</color>
+    <color name="placeholder_color_dark">#424242</color>
 </resources>

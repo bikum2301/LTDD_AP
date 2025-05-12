@@ -1,10 +1,11 @@
+// File: src/main/java/com/example/streamapp/activity/MediaDetailActivity.java
 package com.example.streamapp.activity;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
-import android.net.Uri;
+// import android.net.Uri; // Không dùng trực tiếp
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -12,18 +13,20 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 
-import com.bumptech.glide.Glide; // Import Glide
+import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
-import com.example.streamapp.R; // Import R
-import com.example.streamapp.databinding.ActivityMediaDetailBinding; // ViewBinding
+import com.example.streamapp.R;
+import com.example.streamapp.databinding.ActivityMediaDetailBinding;
 import com.example.streamapp.model.MediaResponse;
-import com.example.streamapp.model.MessageResponse; // Import nếu dùng trong handleApiError
+import com.example.streamapp.model.MessageResponse;
+import com.example.streamapp.model.ErrorResponse; // << THÊM IMPORT NÀY
 import com.example.streamapp.network.ApiClient;
 import com.example.streamapp.network.ApiService;
 import com.example.streamapp.utils.SessionManager;
-import com.google.gson.Gson; // Import Gson
+import com.google.gson.Gson;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -34,11 +37,10 @@ public class MediaDetailActivity extends AppCompatActivity {
     private ActivityMediaDetailBinding binding;
     private ApiService apiService;
     private SessionManager sessionManager;
-    private Long mediaId; // Lưu ID nhận từ Intent
-    private MediaResponse currentMediaItem; // Lưu thông tin media sau khi fetch thành công
+    private Long mediaId;
+    private MediaResponse currentMediaItem;
     private static final String TAG = "MediaDetailActivity";
 
-    // Enum trạng thái UI
     private enum State { LOADING, CONTENT, ERROR }
 
     @Override
@@ -47,63 +49,54 @@ public class MediaDetailActivity extends AppCompatActivity {
         binding = ActivityMediaDetailBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // --- Setup Toolbar ---
         setSupportActionBar(binding.toolbarDetail);
         if (getSupportActionBar() != null) {
-            getSupportActionBar().setDisplayHomeAsUpEnabled(true); // Hiển thị nút back
-            getSupportActionBar().setTitle("Media Details"); // Tiêu đề mặc định
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            // Tiêu đề sẽ được set trong populateUi sau khi fetch data
         }
 
-        // --- Initialize ---
         apiService = ApiClient.getApiService(getApplicationContext());
         sessionManager = new SessionManager(getApplicationContext());
 
-        // --- Lấy Media ID từ Intent ---
-        mediaId = getIntent().getLongExtra("MEDIA_ID", -1L); // -1L là giá trị mặc định nếu không tìm thấy
+        mediaId = getIntent().getLongExtra("MEDIA_ID", -1L);
 
         if (mediaId == -1L) {
             Log.e(TAG, "Media ID not passed correctly in Intent.");
             Toast.makeText(this, "Error: Could not load media details (Invalid ID).", Toast.LENGTH_LONG).show();
-            finish(); // Đóng activity nếu không có ID hợp lệ
+            finish();
             return;
         }
 
-        // --- Set Listeners ---
         binding.fabPlay.setOnClickListener(v -> playMedia());
-        binding.btnRetryDetail.setOnClickListener(v -> fetchMediaDetails()); // Nút retry gọi lại fetch
+        binding.btnRetryDetail.setOnClickListener(v -> fetchMediaDetails());
 
-        // --- Fetch Data ---
         fetchMediaDetails();
     }
 
-    /**
-     * Gọi API để lấy thông tin chi tiết của media item.
-     */
     private void fetchMediaDetails() {
         String token = sessionManager.getToken();
-        // API này yêu cầu token
-        if (token == null || token.startsWith("dummy-test-token")) {
-            handleApiError(null, "Please login to view details.", true);
-            return;
-        }
+        // API getMediaDetails có thể không yêu cầu token nếu media là public.
+        // Tuy nhiên, nếu nó yêu cầu token để theo dõi user hoặc cho media private,
+        // AuthInterceptor sẽ thêm nó. Ta chỉ cần đảm bảo user đã login nếu cần.
+        // Hiện tại, ApiService.getMediaDetails(mediaId) không yêu cầu token ở client-side call.
 
         Log.d(TAG, "Fetching media details for ID: " + mediaId);
-        showState(State.LOADING); // Hiển thị loading
+        showState(State.LOADING);
 
-        // Gọi API getMediaDetails
-        apiService.getMediaDetails("Bearer " + token, mediaId).enqueue(new Callback<MediaResponse>() {
+        // SỬA Ở ĐÂY: Bỏ token khỏi lời gọi API
+        apiService.getMediaDetails(mediaId).enqueue(new Callback<MediaResponse>() {
             @Override
             public void onResponse(@NonNull Call<MediaResponse> call, @NonNull Response<MediaResponse> response) {
                 if (isFinishing() || isDestroyed()) return;
 
                 if (response.isSuccessful() && response.body() != null) {
                     Log.d(TAG, "getMediaDetails successful.");
-                    currentMediaItem = response.body(); // Lưu lại thông tin
-                    populateUi(currentMediaItem); // Hiển thị dữ liệu
-                    showState(State.CONTENT); // Hiển thị nội dung
+                    currentMediaItem = response.body();
+                    populateUi(currentMediaItem);
+                    showState(State.CONTENT);
                 } else {
                     Log.e(TAG, "Failed to fetch media details - Code: " + response.code());
-                    handleApiError(response, "Failed to load media details", false); // Không logout
+                    handleApiError(response, "Failed to load media details", false); // Không logout nếu chỉ là lỗi lấy chi tiết
                 }
             }
 
@@ -116,60 +109,105 @@ public class MediaDetailActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Hiển thị dữ liệu từ MediaResponse lên các View.
-     * @param media Thông tin media item.
-     */
     private void populateUi(MediaResponse media) {
-        if (media == null) return; // Không làm gì nếu data null
+        if (media == null) {
+            Log.e(TAG, "populateUi called with null media data.");
+            showState(State.ERROR, "Media information is unavailable.");
+            return;
+        }
 
         runOnUiThread(() -> {
-            // Cập nhật tiêu đề Toolbar
-            if (getSupportActionBar() != null && media.getTitle() != null) {
+            // Toolbar Title
+            if (getSupportActionBar() != null && !TextUtils.isEmpty(media.getTitle())) {
                 getSupportActionBar().setTitle(media.getTitle());
+            } else if (getSupportActionBar() != null) {
+                getSupportActionBar().setTitle("Media Details"); // Fallback
             }
 
-            // Hiển thị các thông tin text
-            binding.tvDetailTitle.setText(media.getTitle());
-            String type = media.getType() != null ? media.getType().toUpperCase() : "UNKNOWN";
-            String visibility = media.isPublic() ? "Public" : "Private";
-            String owner = media.getOwnerUsername() != null ? "by " + media.getOwnerUsername() : ""; // Hiển thị owner nếu có
-            binding.tvDetailInfo.setText(String.format("%s - %s %s", type, visibility, owner).trim());
+            // Thumbnail
+            RequestOptions thumbnailOptions = new RequestOptions()
+                    .placeholder(R.color.placeholder_color) // Hoặc R.drawable.ic_default_media
+                    .error(R.drawable.ic_default_media)
+                    .centerCrop();
+            Glide.with(this)
+                    .load(media.getThumbnailUrl()) // Dùng thumbnailUrl từ MediaResponse
+                    .apply(thumbnailOptions)
+                    .into(binding.ivDetailThumbnail);
 
+            // Title
+            binding.tvDetailTitle.setText(media.getTitle());
+
+            // Channel/Artist Info
+            RequestOptions avatarOptions = new RequestOptions()
+                    .placeholder(R.drawable.ic_default_avatar)
+                    .error(R.drawable.ic_default_avatar)
+                    .circleCrop();
+            Glide.with(this)
+                    .load(media.getChannelAvatarUrl())
+                    .apply(avatarOptions)
+                    .into(binding.ivDetailChannelAvatar);
+
+            binding.tvDetailChannelName.setText(media.getChannelName() != null ? media.getChannelName() : "Unknown Channel/Artist");
+            if (!TextUtils.isEmpty(media.getOwnerUsername())) {
+                binding.tvDetailOwnerUsername.setText("by " + media.getOwnerUsername());
+                binding.tvDetailOwnerUsername.setVisibility(View.VISIBLE);
+            } else {
+                binding.tvDetailOwnerUsername.setVisibility(View.GONE);
+            }
+
+            // Stats (Views, Upload Date, Duration)
+            StringBuilder statsBuilder = new StringBuilder();
+            if (media.getViewCount() >= 0) {
+                statsBuilder.append(formatViewCount(media.getViewCount())).append(" views");
+            }
+            if (!TextUtils.isEmpty(media.getUploadDate())) {
+                if (statsBuilder.length() > 0) statsBuilder.append(" • ");
+                statsBuilder.append(media.getUploadDate());
+            }
+            if (!TextUtils.isEmpty(media.getDuration()) && !"00:00".equals(media.getDuration())) {
+                if (statsBuilder.length() > 0) statsBuilder.append(" • ");
+                statsBuilder.append(media.getDuration());
+            }
+            binding.tvDetailStats.setText(statsBuilder.toString());
+            binding.tvDetailStats.setVisibility(statsBuilder.length() > 0 ? View.VISIBLE : View.GONE);
+
+
+            // Album (for Music)
+            if ("MUSIC".equalsIgnoreCase(media.getType()) && !TextUtils.isEmpty(media.getAlbum())) {
+                binding.tvDetailAlbum.setText("Album: " + media.getAlbum());
+                binding.tvDetailAlbum.setVisibility(View.VISIBLE);
+            } else {
+                binding.tvDetailAlbum.setVisibility(View.GONE);
+            }
+
+            // Visibility
+            binding.tvDetailVisibility.setText(media.isPublic() ? "Public" : "Private");
+
+            // Description
             if (!TextUtils.isEmpty(media.getDescription())) {
                 binding.tvDetailDescription.setText(media.getDescription());
+                binding.tvDetailDescriptionLabel.setVisibility(View.VISIBLE);
                 binding.tvDetailDescription.setVisibility(View.VISIBLE);
             } else {
-                binding.tvDetailDescription.setVisibility(View.GONE); // Ẩn nếu không có mô tả
+                binding.tvDetailDescription.setText("No description available.");
+                // binding.tvDetailDescriptionLabel.setVisibility(View.GONE); // Tùy chọn
+                // binding.tvDetailDescription.setVisibility(View.GONE);
             }
 
-            // Load ảnh thumbnail (nếu có API trả về URL thumbnail)
-            // Hiện tại dùng icon mặc định
-            int iconResId;
-            if ("MUSIC".equals(type)) iconResId = android.R.drawable.ic_media_play;
-            else if ("VIDEO".equals(type)) iconResId = android.R.drawable.presence_video_online;
-            else iconResId = R.drawable.ic_default_media; // Dùng placeholder của bạn
-            binding.ivDetailThumbnail.setImageResource(iconResId);
-
-            // TODO: Thay thế bằng Glide nếu có thumbnailUrl
-            // String thumbnailUrl = media.getThumbnailUrl(); // Giả sử có getter này
-            // Glide.with(this)
-            //      .load(thumbnailUrl)
-            //      .placeholder(iconResId)
-            //      .error(iconResId)
-            //      .into(binding.ivDetailThumbnail);
-
-            // Hiện nút Play
+            // FAB Play
             binding.fabPlay.setVisibility(View.VISIBLE);
         });
     }
+    private String formatViewCount(long count) {
+        if (count < 1000) return String.valueOf(count);
+        int exp = (int) (Math.log(count) / Math.log(1000));
+        return String.format(Locale.US, "%.1f%c", count / Math.pow(1000, exp), "KMBTPE".charAt(exp - 1));
+    }
 
-    /**
-     * Xử lý sự kiện nhấn nút Play.
-     */
     private void playMedia() {
         if (currentMediaItem == null || TextUtils.isEmpty(currentMediaItem.getUrl())) {
-            Toast.makeText(this, "Cannot play: Media information is incomplete.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Cannot play: Media URL is missing or invalid.", Toast.LENGTH_SHORT).show();
+            Log.w(TAG, "Attempted to play media but URL is missing or item is null.");
             return;
         }
 
@@ -185,88 +223,114 @@ public class MediaDetailActivity extends AppCompatActivity {
         }
     }
 
-
-    /**
-     * Cập nhật giao diện dựa trên trạng thái hiện tại.
-     * @param state Trạng thái cần hiển thị.
-     * @param message Thông báo tùy chọn cho trạng thái ERROR.
-     */
     private void showState(State state, String message) {
         runOnUiThread(() -> {
-            Log.d(TAG,"Changing detail UI state to: " + state + (message != null ? " ("+message+")" : ""));
-            binding.progressBarDetail.setVisibility(state == State.LOADING ? View.VISIBLE : View.GONE);
-            // Ẩn/hiện nội dung chính (ScrollView hoặc ConstraintLayout cha)
-            binding.getRoot().findViewById(R.id.ivDetailThumbnail).setVisibility(state == State.CONTENT ? View.VISIBLE : View.INVISIBLE);
-            binding.getRoot().findViewById(R.id.fabPlay).setVisibility(state == State.CONTENT ? View.VISIBLE : View.INVISIBLE);
-            binding.getRoot().findViewById(R.id.tvDetailTitle).setVisibility(state == State.CONTENT ? View.VISIBLE : View.INVISIBLE);
-            binding.getRoot().findViewById(R.id.tvDetailInfo).setVisibility(state == State.CONTENT ? View.VISIBLE : View.INVISIBLE);
-            binding.getRoot().findViewById(R.id.tvDetailDescription).setVisibility(state == State.CONTENT && !TextUtils.isEmpty(binding.tvDetailDescription.getText()) ? View.VISIBLE : View.INVISIBLE);
+            if (isFinishing() || isDestroyed() || binding == null) { // Thêm kiểm tra binding
+                return;
+            }
+            Log.d(TAG, "Changing detail UI state to: " + state + (message != null ? " (" + message + ")" : ""));
 
+            // Hiển thị/Ẩn ProgressBar
+            binding.progressBarDetail.setVisibility(state == State.LOADING ? View.VISIBLE : View.GONE);
+
+            // Hiển thị/Ẩn toàn bộ nội dung trong ScrollView
+            // Giả sử ScrollView có ID là "scrollViewDetail" và ConstraintLayout bên trong là "contentLayoutDetail"
+            // Bạn đã đặt ID cho ScrollView, nên có thể dùng binding.scrollViewDetail
+            if (binding.scrollViewDetail != null) {
+                binding.scrollViewDetail.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+            } else {
+                // Fallback nếu scrollViewDetail không có trong binding (dù nó nên có nếu ID đúng)
+                // Hoặc bạn có thể ẩn/hiện contentLayoutDetail nếu nó có ID và là con trực tiếp
+                // binding.contentLayoutDetail.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                // Hoặc ẩn/hiện từng view con một cách thủ công (ít ưu tiên hơn)
+                Log.w(TAG, "scrollViewDetail is null in binding, attempting to set visibility for individual content views.");
+                binding.ivDetailThumbnail.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                binding.tvDetailTitle.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                binding.ivDetailChannelAvatar.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                binding.llDetailChannelInfo.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                binding.tvDetailStats.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                binding.tvDetailAlbum.setVisibility(state == State.CONTENT && "MUSIC".equalsIgnoreCase(currentMediaItem != null ? currentMediaItem.getType() : "") ? View.VISIBLE : View.GONE);
+                binding.tvDetailVisibility.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                binding.tvDetailDescriptionLabel.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+                binding.tvDetailDescription.setVisibility(state == State.CONTENT ? View.VISIBLE : View.GONE);
+            }
+
+            // FAB Play chỉ hiển thị khi có nội dung và currentMediaItem không null
+            binding.fabPlay.setVisibility(state == State.CONTENT && currentMediaItem != null ? View.VISIBLE : View.GONE);
+
+
+            // Hiển thị/Ẩn thông báo lỗi và nút Retry
             binding.tvErrorDetail.setVisibility(state == State.ERROR ? View.VISIBLE : View.GONE);
             binding.btnRetryDetail.setVisibility(state == State.ERROR ? View.VISIBLE : View.GONE);
 
             if (state == State.ERROR) {
-                binding.tvErrorDetail.setText(message != null ? message : "An error occurred.");
+                binding.tvErrorDetail.setText(message != null ? message : "An error occurred loading details.");
             }
         });
     }
-    // Overload
+
     private void showState(State state) {
         showState(state, null);
     }
 
-    // Hàm xử lý lỗi API chung (tương tự MainActivity)
     private void handleApiError(Response<?> response, String defaultMessage, boolean logoutOnError) {
-        // ... (Copy code handleApiError từ MainActivity và điều chỉnh nếu cần) ...
         if (isFinishing() || isDestroyed()) return;
         String errorMessage = defaultMessage;
-        int code = response != null ? response.code() : -1;
-        Log.e(TAG, defaultMessage + " - Code: " + code);
+        int responseCode = -1;
+        String errorBodyContent = null;
 
-        if ((response == null || code == 401 || code == 403) && logoutOnError) {
-            runOnUiThread(()->{
-                Toast.makeText(this, "Session expired or invalid. Please login again.", Toast.LENGTH_LONG).show();
-                // Quay về Login
-                Intent intent = new Intent(this, LoginActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-                finish();
-            });
+        if (response != null) {
+            responseCode = response.code();
+            if (response.errorBody() != null) {
+                try { errorBodyContent = response.errorBody().string(); }
+                catch (IOException e) { Log.e(TAG, "Error reading error body: ", e); }
+            }
+        }
+        Log.e(TAG, defaultMessage + " - Code: " + responseCode + ", RawErrorBody: " + errorBodyContent);
+
+        if ((response == null || responseCode == 401 || responseCode == 403) && logoutOnError) {
+            navigateToLoginAndFinish();
             return;
         }
 
-        String errorBodyContent = "";
-        // ... (code đọc và parse error body như trong MainActivity.handleApiError) ...
-        if (response != null && response.errorBody() != null) {
+        if (errorBodyContent != null && !errorBodyContent.isEmpty()) {
             try {
-                errorBodyContent = response.errorBody().string();
-                Log.e(TAG, "API Error Body Raw: " + errorBodyContent);
-            } catch (Exception e) { Log.e(TAG, "Error reading error body", e); }
-        }
-
-        if (!errorBodyContent.isEmpty()) {
-            try {
-                MessageResponse errorMsg = new Gson().fromJson(errorBodyContent, MessageResponse.class);
-                if (errorMsg != null && !TextUtils.isEmpty(errorMsg.getMessage())) {
-                    errorMessage = errorMsg.getMessage();
-                } else { errorMessage += " (Code: " + code + ")"; }
-            } catch (Exception jsonError) {
-                Log.w(TAG,"Could not parse error body as JSON: " + jsonError.getMessage());
-                errorMessage += " (Code: " + code + ")";
+                ErrorResponse backendError = new Gson().fromJson(errorBodyContent, ErrorResponse.class);
+                if (backendError != null && !TextUtils.isEmpty(backendError.getMessage())) {
+                    errorMessage = backendError.getMessage();
+                } else if (backendError != null && !TextUtils.isEmpty(backendError.getError())) {
+                    errorMessage = backendError.getError() + " (Code: " + responseCode + ")";
+                } else { errorMessage = defaultMessage + " (Code: " + responseCode + ")";}
+            } catch (Exception e) {
+                Log.w(TAG, "Could not parse error body as Backend ErrorResponse, trying MessageResponse. Error: " + e.getMessage());
+                try {
+                    MessageResponse msgResponse = new Gson().fromJson(errorBodyContent, MessageResponse.class);
+                    if (msgResponse != null && !TextUtils.isEmpty(msgResponse.getMessage())) {
+                        errorMessage = msgResponse.getMessage();
+                    } else {errorMessage = defaultMessage + " (Code: " + responseCode + ")";}
+                } catch (Exception e2) {
+                    Log.w(TAG, "Could not parse error body as MessageResponse either. Error: " + e2.getMessage());
+                    errorMessage = defaultMessage + " (Code: " + responseCode + ")";
+                }
             }
-        } else if (response != null) { errorMessage += " (Code: " + code + ")"; }
-        else { errorMessage += " (No response)"; }
+        } else if (response != null) { errorMessage = defaultMessage + " (Code: " + responseCode + ")";
+        } else {errorMessage = defaultMessage + " (No response from server)";}
 
-        // Hiển thị trạng thái lỗi
         showState(State.ERROR, errorMessage);
     }
 
+    private void navigateToLoginAndFinish() {
+        Toast.makeText(this, "Session expired or invalid. Please login again.", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finishAffinity();
+    }
 
-    // Xử lý nút back trên ActionBar
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            finish(); // Đóng Activity hiện tại
+            finish();
             return true;
         }
         return super.onOptionsItemSelected(item);

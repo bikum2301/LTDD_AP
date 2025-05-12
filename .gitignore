@@ -1,15 +1,64 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+# Built application files
+*.apk
+*.aab
+*.ap_
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Build directory
+**/build/
+
+# Generated files
+bin/
+gen/
+
+# Local configuration file (sdk path, etc)
 local.properties
+
+# Log files
+*.log
+
+# Android Studio Navigation editor temp files
+*.nav_ FontFamily*.xml
+*.nav_versions.xml
+
+# Android Studio captures folder
+captures/
+
+# IntelliJ
+.idea/
+# Nếu bạn muốn giữ lại một số file .idea, hãy dùng ! để un-ignore, ví dụ:
+# !.idea/workspace.xml
+# Nhưng thường ignore cả thư mục là an toàn nhất.
+*.iml
+# Để giữ lại file .iml của module app (và các module khác) nhưng ignore file .iml ở thư mục gốc:
+# /*.iml
+# !/**/src/** /*.iml là không đúng, cách đơn giản nhất là ignore hết *.iml rồi un-ignore file cụ thể nếu cần
+# Hoặc chỉ cần:
+# *.iml (nếu bạn không muốn commit bất kỳ file .iml nào)
+# !app/app.iml (Nếu bạn muốn giữ lại file .iml của module app) -> Cách này có thể phức tạp khi có nhiều module.
+
+# Gradle
+.gradle/
+build/ # Thư mục build ở cấp project
+
+# Keystore files (RẤT QUAN TRỌNG)
+*.jks
+*.keystore
+
+# Google Services (nếu bạn tải file json về và không muốn commit)
+# google-services.json # Bỏ comment nếu bạn không muốn commit file này
+
+# File credentials của Google Drive (RẤT QUAN TRỌNG)
+google-credentials.json # Hoặc tên file credentials thực tế của bạn
+# Ví dụ: streamapp-backend-storage-*.json
+
+# Mac OS
+.DS_Store
+
+# Windows
+Thumbs.db

@@ -1,4 +1,5 @@
-package com.example.streamapp.activity; // Hoặc package của bạn
+// File: src/main/java/com/example/streamapp/activity/UploadActivity.java
+package com.example.streamapp.activity;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -22,19 +23,21 @@ import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.widget.Toast;
 
-import com.example.streamapp.R; // Đảm bảo import đúng R
+import com.example.streamapp.R;
 import com.example.streamapp.databinding.ActivityUploadBinding;
 import com.example.streamapp.model.MediaUploadRequest;
 import com.example.streamapp.model.MessageResponse;
+import com.example.streamapp.model.ErrorResponse;
+import com.example.streamapp.model.MediaResponse; // Model MediaResponse của client
 import com.example.streamapp.network.ApiClient;
 import com.example.streamapp.network.ApiService;
-import com.example.streamapp.utils.SessionManager; // Cần SessionManager để lấy token
+import com.example.streamapp.network.InputStreamRequestBody; // Import lớp mới
+import com.example.streamapp.utils.SessionManager;
 import com.google.gson.Gson;
 
-// Thêm import này
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException; // Thêm import này
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -48,23 +51,23 @@ public class UploadActivity extends AppCompatActivity {
     private ActivityUploadBinding binding;
     private ApiService apiService;
     private SessionManager sessionManager;
-    private Uri selectedFileUri; // Lưu URI của file được chọn
+    private Uri selectedFileUri;
     private static final String TAG = "UploadActivity";
 
-    // --- ActivityResultLaunchers ---
-    private ActivityResultLauncher<String[]> filePickerLauncher; // Dùng mảng String cho nhiều loại MIME
+    private ActivityResultLauncher<String[]> filePickerLauncher;
     private ActivityResultLauncher<String> requestPermissionLauncher;
 
-    // Xác định quyền cần xin dựa trên phiên bản Android
-    private static final String READ_STORAGE_PERMISSION = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            ? Manifest.permission.READ_MEDIA_VIDEO // Chỉ xin quyền video ví dụ, có thể cần cả READ_MEDIA_AUDIO
-            : Manifest.permission.READ_EXTERNAL_STORAGE;
+    private static final String READ_MEDIA_VIDEO_PERMISSION = Manifest.permission.READ_MEDIA_VIDEO;
+    private static final String READ_MEDIA_AUDIO_PERMISSION = Manifest.permission.READ_MEDIA_AUDIO;
+    private static final String READ_EXTERNAL_STORAGE_PERMISSION = Manifest.permission.READ_EXTERNAL_STORAGE;
 
-    // Thêm quyền đọc audio cho Android 13+ nếu cần upload cả nhạc
-    private static final String READ_AUDIO_PERMISSION_TIRAMISU = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            ? Manifest.permission.READ_MEDIA_AUDIO
-            : null; // Không cần quyền riêng cho audio ở API < 33
-
+    private String[] getRequiredPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return new String[]{READ_MEDIA_VIDEO_PERMISSION, READ_MEDIA_AUDIO_PERMISSION};
+        } else {
+            return new String[]{READ_EXTERNAL_STORAGE_PERMISSION};
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,382 +78,328 @@ public class UploadActivity extends AppCompatActivity {
         apiService = ApiClient.getApiService(this);
         sessionManager = new SessionManager(this);
 
-        // --- Setup ActionBar (nếu muốn có nút back) ---
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle("Upload Media");
-            getSupportActionBar().setDisplayHomeAsUpEnabled(true); // Hiển thị nút back
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
-
-        setupLaunchers(); // Khởi tạo các launcher
-
-        binding.btnSelectFile.setOnClickListener(v -> checkPermissionAndOpenFilePicker());
-        // Thêm Log cho nút Upload để kiểm tra listener
+        setupLaunchers();
+        binding.btnSelectFile.setOnClickListener(v -> checkPermissionsAndOpenFilePicker());
         binding.btnUpload.setOnClickListener(v -> {
             Log.d(TAG, "Upload Button Clicked!");
-            attemptUpload();
+            attemptUploadWithClientSideSizeCheck(); // Gọi hàm kiểm tra size trước
         });
     }
 
-    // --- Setup ActivityResultLaunchers ---
     private void setupLaunchers() {
-        // Launcher để yêu cầu quyền (ví dụ chỉ xin quyền Video trước)
         requestPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
                 isGranted -> {
                     if (isGranted) {
-                        // Nếu cần cả quyền Audio trên API 33+, kiểm tra và xin tiếp
-                        if (READ_AUDIO_PERMISSION_TIRAMISU != null && ContextCompat.checkSelfPermission(this, READ_AUDIO_PERMISSION_TIRAMISU) != PackageManager.PERMISSION_GRANTED) {
-                            // TODO: Có thể tạo một launcher riêng cho quyền audio hoặc xử lý logic phức tạp hơn
-                            // Tạm thời vẫn mở picker, hy vọng người dùng chọn đúng loại file mà quyền đã cấp
-                            Log.w(TAG, "Video permission granted, but Audio permission might be needed for music uploads on API 33+");
-                            openFilePicker();
-                        } else {
-                            openFilePicker(); // Nếu đủ quyền hoặc API < 33 thì mở file picker
-                        }
+                        Log.d(TAG, "A storage/media permission granted.");
+                        checkPermissionsAndOpenFilePicker(); // Kiểm tra lại tất cả các quyền
                     } else {
                         Toast.makeText(this, "Permission denied. Cannot select file.", Toast.LENGTH_SHORT).show();
                     }
                 });
 
-        // Launcher để chọn file
         filePickerLauncher = registerForActivityResult(
-                new ActivityResultContracts.OpenDocument(), // Dùng OpenDocument để có URI ổn định hơn
+                new ActivityResultContracts.OpenDocument(),
                 uri -> {
                     if (uri != null) {
-                        // Lấy quyền truy cập URI lâu dài (quan trọng với OpenDocument)
                         try {
-                            // Gọi takePersistableUriPermission trực tiếp
-                            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
+                            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
                             getContentResolver().takePersistableUriPermission(uri, takeFlags);
-                            Log.d(TAG, "Attempted to take persistable read permission for URI: " + uri);
-
                         } catch (SecurityException e) {
-                            // Lỗi này xảy ra nếu URI không hỗ trợ quyền lâu dài hoặc có vấn đề khác
-                            Log.e(TAG, "Failed to take persistable permission for URI: " + uri, e);
-                            Toast.makeText(this, "Could not secure long-term access to the file. Access might be temporary.", Toast.LENGTH_LONG).show();
-                            // Vẫn có thể tiếp tục với URI tạm thời, nhưng có thể mất quyền truy cập sau này
-                        } catch (Exception e) { // Bắt lỗi chung khác
-                            Log.e(TAG, "Error handling URI permissions for: " + uri, e);
+                            Log.e(TAG, "Failed to take persistable read/write permission for URI: " + uri, e);
                         }
-
                         selectedFileUri = uri;
                         String fileName = getFileNameFromUri(uri);
-                        binding.tvSelectedFileName.setText("Selected: " + fileName);
-                        Log.d(TAG, "File URI: " + selectedFileUri.toString());
+                        binding.tvSelectedFileName.setText(fileName != null ? "Selected: " + fileName : "File selected (name unknown)");
+                        Log.d(TAG, "File selected: " + selectedFileUri.toString());
                     } else {
                         selectedFileUri = null;
                         binding.tvSelectedFileName.setText("No file selected");
+                        Log.d(TAG, "File selection cancelled.");
                     }
                 });
     }
 
+    private void checkPermissionsAndOpenFilePicker() {
+        String[] permissionsToRequest = getRequiredPermissions();
+        boolean allPermissionsGranted = true;
+        String firstUngrantedPermission = null;
 
-    // --- Permission Handling and File Picking ---
-    private void checkPermissionAndOpenFilePicker() {
-        // Kiểm tra quyền chính (Video hoặc Storage cũ)
-        if (ContextCompat.checkSelfPermission(this, READ_STORAGE_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
-            // Nếu cần cả quyền Audio trên API 33+, kiểm tra tiếp
-            if (READ_AUDIO_PERMISSION_TIRAMISU != null && ContextCompat.checkSelfPermission(this, READ_AUDIO_PERMISSION_TIRAMISU) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Xử lý xin thêm quyền Audio nếu cần thiết cho loại file MUSIC
-                // Tạm thời vẫn mở picker
-                Log.w(TAG, "Attempting to open picker without guaranteed Audio permission on API 33+");
-                openFilePicker();
-            } else {
-                openFilePicker(); // Đã có đủ quyền cần thiết
+        for (String permission : permissionsToRequest) {
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                allPermissionsGranted = false;
+                firstUngrantedPermission = permission;
+                break;
             }
-        } else {
-            // Yêu cầu quyền chính trước
-            Log.d(TAG, "Requesting permission: " + READ_STORAGE_PERMISSION);
-            requestPermissionLauncher.launch(READ_STORAGE_PERMISSION);
+        }
+
+        if (allPermissionsGranted) {
+            openFilePicker();
+        } else if (firstUngrantedPermission != null) {
+            Log.d(TAG, "Requesting permission: " + firstUngrantedPermission);
+            requestPermissionLauncher.launch(firstUngrantedPermission);
         }
     }
 
     private void openFilePicker() {
-        // Mở trình chọn file, cho phép chọn audio hoặc video
-        Log.d(TAG, "Launching file picker for audio/* and video/*");
+        Log.d(TAG, "Launching file picker for audio/*, video/*");
         filePickerLauncher.launch(new String[]{"audio/*", "video/*"});
     }
 
-    // --- Upload Logic ---
-    private void attemptUpload() {
-        Log.d(TAG, "attemptUpload() started"); // LOG 1
-
-        String title = binding.etUploadTitle.getText().toString().trim();
-        String description = binding.etUploadDescription.getText().toString().trim(); // Có thể rỗng
-        String mediaType = binding.rbMusic.isChecked() ? "MUSIC" : "VIDEO";
-        boolean isPublic = binding.swPublic.isChecked();
-
-        // --- Validation ---
+    private void attemptUploadWithClientSideSizeCheck() {
         if (selectedFileUri == null) {
-            Log.w(TAG, "attemptUpload() failed: No file selected"); // LOG 2a
             Toast.makeText(this, "Please select a media file first.", Toast.LENGTH_SHORT).show();
             return;
         }
-        Log.d(TAG, "attemptUpload: File selected - " + selectedFileUri); // LOG 2b
 
+        long fileSize = -1;
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(selectedFileUri, null, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (sizeIndex != -1 && !cursor.isNull(sizeIndex)) {
+                    fileSize = cursor.getLong(sizeIndex);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Could not get file size from URI", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        if (fileSize != -1) {
+            Log.d(TAG, "Selected file size: " + fileSize + " bytes (" + fileSize / (1024.0 * 1024.0) + " MB)");
+            String mediaType = binding.rbMusic.isChecked() ? "MUSIC" : "VIDEO";
+            long maxSizeVideo = 500L * 1024 * 1024; // 500MB
+            long maxSizeMusic = 20L * 1024 * 1024; // 20MB (Tăng lên một chút)
+
+            if ("VIDEO".equals(mediaType) && fileSize > maxSizeVideo) {
+                Toast.makeText(this, "Video file is too large. Maximum size is 500MB.", Toast.LENGTH_LONG).show();
+                return;
+            } else if ("MUSIC".equals(mediaType) && fileSize > maxSizeMusic) {
+                Toast.makeText(this, "Music file is too large. Maximum size is 20MB.", Toast.LENGTH_LONG).show();
+                return;
+            }
+        } else {
+            Log.w(TAG, "Could not determine file size. Upload will proceed without client-side size check.");
+        }
+
+        // Nếu qua được kiểm tra size (hoặc không lấy được size) thì mới gọi attemptUpload
+        attemptUpload();
+    }
+
+
+    private void attemptUpload() {
+        String title = binding.etUploadTitle.getText().toString().trim();
+        String description = binding.etUploadDescription.getText().toString().trim();
+        String mediaType = binding.rbMusic.isChecked() ? "MUSIC" : "VIDEO";
+        boolean isPublic = binding.swPublic.isChecked();
+
+        if (selectedFileUri == null) { // Kiểm tra lại lần nữa, dù attemptUploadWithClientSideSizeCheck đã làm
+            Toast.makeText(this, "Please select a media file.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (TextUtils.isEmpty(title)) {
-            Log.w(TAG, "attemptUpload() failed: Title is empty"); // LOG 3a
             binding.etUploadTitle.setError("Title is required");
             binding.etUploadTitle.requestFocus();
             return;
         }
-        Log.d(TAG, "attemptUpload: Title is valid - " + title); // LOG 3b
-        // --- End Validation ---
 
         String token = sessionManager.getToken();
         if (token == null) {
-            Log.w(TAG, "attemptUpload() failed: Token is null"); // LOG 4a
-            // Toast đã có trong handleApiError
-            handleApiError(null, "Session expired"); // Gọi hàm xử lý lỗi để điều hướng về Login
+            handleApiError(null, "Session expired. Please login again.", true);
             return;
         }
-        Log.d(TAG, "attemptUpload: Token found"); // LOG 4b
-
-        // Hiển thị loading TRƯỚC KHI bắt đầu thread
         showLoading(true);
+        Log.d(TAG, "Starting upload thread for: " + title);
 
-        Log.d(TAG, "attemptUpload: Starting background thread..."); // LOG 5
-        // Chạy việc chuẩn bị file và gọi API trong background thread
         new Thread(() -> {
-            Log.d(TAG, "attemptUpload: Inside background thread - run()"); // LOG 6
-            RequestBody dataPart = null;
-            RequestBody filePart = null;
-            MultipartBody.Part fileMultiPart = null;
-            boolean preparationSuccess = false;
-
             try {
-                Log.d(TAG, "attemptUpload: Preparing dataPart..."); // LOG 7
-                // 1. Tạo RequestBody cho metadata (JSON)
                 MediaUploadRequest mediaData = new MediaUploadRequest(title, description, mediaType, isPublic);
                 String mediaDataJson = new Gson().toJson(mediaData);
-                dataPart = RequestBody.create(mediaDataJson, MediaType.parse("application/json; charset=utf-8"));
-                Log.d(TAG, "attemptUpload: dataPart prepared."); // LOG 8
+                RequestBody currentDataPart = RequestBody.create(mediaDataJson, MediaType.parse("application/json; charset=utf-8"));
 
-                Log.d(TAG, "attemptUpload: Preparing filePart..."); // LOG 9
-                // 2. Tạo RequestBody cho file (trong try-catch riêng cho lỗi file)
-                filePart = createFileRequestBody(selectedFileUri);
-                if (filePart == null) {
-                    Log.e(TAG, "attemptUpload: filePart is null after creation"); // LOG 10a
-                    runOnUiThread(() -> { // Cập nhật UI từ background thread
-                        showLoading(false);
-                        Toast.makeText(UploadActivity.this, "Error preparing file for upload.", Toast.LENGTH_SHORT).show();
-                    });
-                    return; // Dừng thread
-                }
-                Log.d(TAG, "attemptUpload: filePart prepared."); // LOG 10b
+                RequestBody currentFilePart = createStreamingRequestBody(selectedFileUri); // Sử dụng hàm mới
+                // createStreamingRequestBody sẽ throw IOException nếu có lỗi, không cần kiểm tra null
 
-
-                Log.d(TAG, "attemptUpload: Preparing fileMultiPart..."); // LOG 11
-                // 3. Tạo MultipartBody.Part
                 String fileName = getFileNameFromUri(selectedFileUri);
-                fileMultiPart = MultipartBody.Part.createFormData("file", fileName, filePart);
-                preparationSuccess = true;
-                Log.d(TAG, "attemptUpload: fileMultiPart prepared. Preparation success: " + preparationSuccess); // LOG 12
+                MultipartBody.Part currentFileMultiPart = MultipartBody.Part.createFormData("file", fileName, currentFilePart);
 
-
-            } catch (IOException e) {
-                Log.e(TAG, "IOException during file preparation", e);
-                runOnUiThread(() -> {
-                    showLoading(false);
-                    Toast.makeText(UploadActivity.this, "Error preparing file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-            } catch (Exception e) { // Bắt các lỗi khác có thể xảy ra
-                Log.e(TAG, "Exception during preparation", e);
-                runOnUiThread(() -> {
-                    showLoading(false);
-                    Toast.makeText(UploadActivity.this, "An unexpected error occurred during preparation.", Toast.LENGTH_SHORT).show();
-                });
-            }
-
-            // Chỉ gọi API nếu chuẩn bị thành công
-            if (preparationSuccess && fileMultiPart != null && dataPart != null) {
-                final MultipartBody.Part finalFileMultiPart = fileMultiPart;
-                final RequestBody finalDataPart = dataPart;
-
-                Log.d(TAG, "attemptUpload: Calling API..."); // LOG 13
-                // Gọi API (Retrofit tự xử lý callback trên Main thread)
-                apiService.uploadMedia("Bearer " + token, finalFileMultiPart, finalDataPart).enqueue(new Callback<MessageResponse>() {
+                Log.d(TAG, "Preparation successful for " + fileName + ". Calling upload API...");
+                // AuthInterceptor sẽ tự thêm token
+                apiService.uploadMedia(currentFileMultiPart, currentDataPart).enqueue(new Callback<MediaResponse>() {
                     @Override
-                    public void onResponse(@NonNull Call<MessageResponse> call, @NonNull Response<MessageResponse> response) {
-                        Log.d(TAG, "attemptUpload: API onResponse - Code: " + response.code()); // LOG 14
-                        runOnUiThread(() -> { // Đảm bảo cập nhật UI trên Main thread
-                            // Luôn tắt loading dù thành công hay lỗi
+                    public void onResponse(@NonNull Call<MediaResponse> call, @NonNull Response<MediaResponse> response) {
+                        runOnUiThread(() -> {
                             showLoading(false);
                             if (response.isSuccessful() && response.body() != null) {
-                                Toast.makeText(UploadActivity.this, response.body().getMessage(), Toast.LENGTH_LONG).show();
-                                Log.i(TAG, "Upload successful. URL: " + response.body().getUrl());
-                                // Gửi kết quả thành công về MainActivity nếu cần refresh
-                                setResult(RESULT_OK); // Đặt kết quả là OK
-                                finish(); // Đóng màn hình upload
+                                MediaResponse uploadedMedia = response.body();
+                                String successMessage = "Media '" + (uploadedMedia.getTitle() != null ? uploadedMedia.getTitle() : fileName) + "' uploaded successfully!";
+                                Toast.makeText(UploadActivity.this, successMessage, Toast.LENGTH_LONG).show();
+                                Log.i(TAG, "Upload successful. Server returned MediaResponse for title: " + uploadedMedia.getTitle() + ", URL: " + uploadedMedia.getUrl());
+                                setResult(RESULT_OK);
+                                finish();
                             } else {
-                                handleApiError(response, "Upload failed");
+                                Log.e(TAG, "Upload API call not successful. Code: " + response.code());
+                                handleApiError(response, "Upload failed (Server)", false);
                             }
                         });
                     }
 
                     @Override
-                    public void onFailure(@NonNull Call<MessageResponse> call, @NonNull Throwable t) {
-                        Log.e(TAG, "attemptUpload: API onFailure", t); // LOG 15
-                        runOnUiThread(() -> { // Đảm bảo cập nhật UI trên Main thread
-                            // Luôn tắt loading khi có lỗi
+                    public void onFailure(@NonNull Call<MediaResponse> call, @NonNull Throwable t) {
+                        runOnUiThread(() -> {
                             showLoading(false);
-                            // Kiểm tra lỗi cụ thể
-                            if (t instanceof java.net.SocketTimeoutException) {
-                                Toast.makeText(UploadActivity.this, "Upload failed: Connection timed out. Please try again.", Toast.LENGTH_LONG).show();
+                            Log.e(TAG, "Upload API Call Failed: ", t);
+                            String errorMsg = "Upload failed: " + t.getMessage();
+                            if (t instanceof SocketTimeoutException) {
+                                errorMsg = "Upload timed out. Please check your connection.";
                             } else if (t instanceof IOException) {
-                                Toast.makeText(UploadActivity.this, "Upload failed: Network error. Please check your connection.", Toast.LENGTH_LONG).show();
-                            } else {
-                                Toast.makeText(UploadActivity.this, "Upload failed: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                                errorMsg = "A network error occurred during upload. Please try again.";
                             }
+                            Toast.makeText(UploadActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                         });
                     }
                 });
-            } else if (!preparationSuccess) {
-                Log.w(TAG, "attemptUpload: API call skipped because preparation failed."); // LOG 16
-                // Đảm bảo loading tắt nếu lỗi xảy ra trong quá trình chuẩn bị
-                runOnUiThread(() -> showLoading(false));
+
+            } catch (IOException e) {
+                Log.e(TAG, "IOException during file preparation in upload thread: ", e);
+                runOnUiThread(() -> {
+                    showLoading(false);
+                    Toast.makeText(UploadActivity.this, "Error preparing file for upload: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception e) { // Bắt các lỗi không mong muốn khác
+                Log.e(TAG, "Unexpected error during file preparation or upload thread: ", e);
+                runOnUiThread(() -> {
+                    showLoading(false);
+                    Toast.makeText(UploadActivity.this, "An unexpected error occurred during upload process.", Toast.LENGTH_LONG).show();
+                });
             }
-        }).start(); // Bắt đầu background thread
+        }).start();
     }
 
+    private RequestBody createStreamingRequestBody(Uri uri) throws IOException {
+        if (uri == null) {
+            throw new IOException("URI cannot be null for creating request body.");
+        }
 
-    // Helper để tạo RequestBody từ Uri (sử dụng ByteArrayOutputStream) - Đã sửa lỗi API level
-    private RequestBody createFileRequestBody(Uri uri) throws IOException {
-        InputStream inputStream = null;
-        ByteArrayOutputStream byteBuffer = null; // Khai báo ngoài để đảm bảo đóng nếu cần
-        try {
-            inputStream = getContentResolver().openInputStream(uri);
-            if (inputStream == null) {
-                Log.e(TAG, "Unable to open InputStream for URI: " + uri);
-                return null;
-            }
-
-            // Lấy kiểu MIME
-            String mimeType = getContentResolver().getType(uri);
-            if (mimeType == null) {
-                String fileExtension = MimeTypeMap.getFileExtensionFromUrl(uri.toString());
-                mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension);
-            }
-            if (mimeType == null) {
-                mimeType = "application/octet-stream";
-            }
-            Log.d(TAG, "File MIME Type: " + mimeType);
-
-            // Sử dụng ByteArrayOutputStream để đọc InputStream tương thích API cũ
-            byteBuffer = new ByteArrayOutputStream();
-            int bufferSize = 1024 * 4; // 4KB buffer
-            byte[] buffer = new byte[bufferSize];
-
-            int len;
-            while ((len = inputStream.read(buffer)) != -1) {
-                byteBuffer.write(buffer, 0, len);
-            }
-            byte[] fileBytes = byteBuffer.toByteArray();
-
-            return RequestBody.create(fileBytes, MediaType.parse(mimeType));
-
-        } finally {
-            // Đảm bảo cả hai stream đều được đóng
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    Log.e(TAG, "Error closing InputStream", e);
-                }
-            }
-            if (byteBuffer != null) {
-                try {
-                    byteBuffer.close(); // ByteArrayOutputStream cũng nên được đóng
-                } catch (IOException e) {
-                    Log.e(TAG, "Error closing ByteArrayOutputStream", e);
-                }
+        String mimeTypeString = getContentResolver().getType(uri);
+        if (mimeTypeString == null) {
+            String fileExtension = MimeTypeMap.getFileExtensionFromUrl(uri.toString());
+            if (fileExtension != null) {
+                mimeTypeString = MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension.toLowerCase());
             }
         }
+        if (mimeTypeString == null) {
+            Log.w(TAG, "MIME type is null for URI: " + uri + ", defaulting to application/octet-stream");
+            mimeTypeString = "application/octet-stream";
+        }
+        Log.d(TAG, "Determined MIME Type for streaming upload: " + mimeTypeString);
+
+        MediaType contentType = MediaType.parse(mimeTypeString);
+        if (contentType == null) {
+            Log.e(TAG, "Could not parse MIME type string: " + mimeTypeString + ". Defaulting to application/octet-stream.");
+            contentType = MediaType.parse("application/octet-stream");
+        }
+
+        return new InputStreamRequestBody(contentType, getContentResolver(), uri);
     }
 
-
-    // Helper để lấy tên file từ Content URI (giữ nguyên)
     private String getFileNameFromUri(Uri uri) {
-        String fileName = null;
-        if (ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())) {
-            Cursor cursor = null; // Khai báo ngoài try
-            try {
-                // Chỉ yêu cầu cột DISPLAY_NAME
-                cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+        String result = null;
+        if (uri.getScheme() != null && uri.getScheme().equals("content")) {
+            try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
                 if (cursor != null && cursor.moveToFirst()) {
                     int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
                     if (nameIndex != -1) {
-                        fileName = cursor.getString(nameIndex);
+                        result = cursor.getString(nameIndex);
                     }
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error querying filename from URI: " + uri, e);
-                // Có thể thử lấy từ path nếu query lỗi
-            } finally {
-                if (cursor != null) {
-                    cursor.close();
-                }
+                Log.e(TAG, "Error getting filename from content URI: " + e.getMessage(), e);
             }
         }
-        // Nếu không lấy được từ ContentResolver hoặc scheme khác
-        if (fileName == null) {
-            fileName = uri.getPath();
-            if (fileName != null) {
-                int cut = fileName.lastIndexOf('/');
+        if (result == null) {
+            result = uri.getPath();
+            if (result != null) {
+                int cut = result.lastIndexOf('/');
                 if (cut != -1) {
-                    fileName = fileName.substring(cut + 1);
+                    result = result.substring(cut + 1);
                 }
             }
         }
-        // Xử lý trường hợp tên file vẫn null hoặc rỗng
-        return (fileName != null && !fileName.isEmpty()) ? fileName : "unknown_file";
+        return (result != null && !result.isEmpty()) ? result : "unknown_media_file";
     }
 
-    // Hàm xử lý lỗi API chung (giữ nguyên, đã có điều hướng về Login)
     private void handleApiError(Response<?> response, String defaultMessage) {
-        String errorMessage = defaultMessage;
-        int code = response != null ? response.code() : -1; // Kiểm tra null cho response
-        Log.e(TAG, defaultMessage + " - Code: " + code);
+        handleApiError(response, defaultMessage, true);
+    }
 
-        // Xử lý session hết hạn hoặc không có token
-        if (response == null || code == 401 || code == 403) {
-            // Đảm bảo Toast và Intent chạy trên UI thread nếu hàm này được gọi từ background
-            runOnUiThread(() -> {
-                Toast.makeText(this, "Session expired or invalid. Please login again.", Toast.LENGTH_LONG).show();
-                Intent intent = new Intent(this, LoginActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-                finish();
-            });
+    private void handleApiError(Response<?> response, String defaultMessage, boolean logoutOnError) {
+        if (isFinishing() || isDestroyed()) return;
+
+        String errorMessage = defaultMessage;
+        int responseCode = -1;
+        String errorBodyContent = null;
+
+        if (response != null) {
+            responseCode = response.code();
+            if (response.errorBody() != null) {
+                try {
+                    errorBodyContent = response.errorBody().string();
+                } catch (IOException e) {
+                    Log.e(TAG, "Error reading error body: ", e);
+                }
+            }
+        }
+        Log.e(TAG, defaultMessage + " - Code: " + responseCode + ", RawErrorBody: " + errorBodyContent);
+
+        if ((response == null || responseCode == 401 || responseCode == 403) && logoutOnError) {
+            navigateToLoginAndFinish();
             return;
         }
 
-        // Xử lý các lỗi khác từ server
-        if (response.errorBody() != null) {
+        if (errorBodyContent != null && !errorBodyContent.isEmpty()) {
             try {
-                // Cố gắng parse lỗi cụ thể
-                MessageResponse errorMsg = new Gson().fromJson(response.errorBody().charStream(), MessageResponse.class);
-                if (errorMsg != null && !TextUtils.isEmpty(errorMsg.getMessage())) {
-                    errorMessage = errorMsg.getMessage();
+                ErrorResponse backendError = new Gson().fromJson(errorBodyContent, ErrorResponse.class);
+                if (backendError != null && !TextUtils.isEmpty(backendError.getMessage())) {
+                    errorMessage = backendError.getMessage();
+                } else if (backendError != null && !TextUtils.isEmpty(backendError.getError())) {
+                    errorMessage = backendError.getError() + " (Code: " + responseCode + ")";
                 } else {
-                    // Nếu không parse được hoặc không có message, dùng thông tin chung
-                    errorMessage += ": " + code + " " + response.message();
+                    errorMessage = defaultMessage + " (Code: " + responseCode + ")";
                 }
-                Log.e(TAG, "API Error Body: " + (errorMsg != null ? new Gson().toJson(errorMsg) : "Could not parse as MessageResponse"));
             } catch (Exception e) {
-                Log.e(TAG, "Error reading/parsing error body", e);
-                errorMessage += ": " + code + " " + response.message(); // Lỗi khi đọc error body
+                Log.w(TAG, "Could not parse error body as Backend ErrorResponse, trying MessageResponse. Error: " + e.getMessage());
+                try {
+                    MessageResponse msgResponse = new Gson().fromJson(errorBodyContent, MessageResponse.class);
+                    if (msgResponse != null && !TextUtils.isEmpty(msgResponse.getMessage())) {
+                        errorMessage = msgResponse.getMessage();
+                    } else {
+                        errorMessage = defaultMessage + " (Code: " + responseCode + ")";
+                    }
+                } catch (Exception e2) {
+                    Log.w(TAG, "Could not parse error body as MessageResponse either. Error: " + e2.getMessage());
+                    errorMessage = defaultMessage + " (Raw: " + errorBodyContent.substring(0, Math.min(100, errorBodyContent.length())) + "... Code: " + responseCode + ")";
+                }
             }
+        } else if (response != null) {
+            errorMessage = defaultMessage + " (Code: " + responseCode + ")";
         } else {
-            // Trường hợp không có error body nhưng isSuccessful là false
-            errorMessage += " (Code: " + code + ")";
+            errorMessage = defaultMessage + " (No response from server)";
         }
-        // Hiển thị Toast trên UI thread
+
         final String finalErrorMessage = errorMessage;
-        runOnUiThread(() -> Toast.makeText(this, finalErrorMessage, Toast.LENGTH_LONG).show());
+        runOnUiThread(() -> Toast.makeText(UploadActivity.this, finalErrorMessage, Toast.LENGTH_LONG).show());
     }
 
-    // Hàm showLoading cần đảm bảo chạy trên UI thread nếu được gọi từ background
     private void showLoading(boolean isLoading) {
         runOnUiThread(() -> {
             binding.progressBarUpload.setVisibility(isLoading ? View.VISIBLE : View.GONE);
@@ -464,15 +413,22 @@ public class UploadActivity extends AppCompatActivity {
         });
     }
 
+    private void navigateToLoginAndFinish() {
+        Toast.makeText(this, "Session expired or invalid. Please login again.", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finishAffinity();
+    }
 
-    // Xử lý nút back trên ActionBar (giữ nguyên)
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            // Xem xét hành vi khi nhấn back: hủy upload hay chỉ đơn giản là quay lại?
-            // Nếu đang upload, có thể hỏi người dùng xác nhận.
-            // Hiện tại chỉ đơn giản là quay lại.
-            onBackPressed(); // Gọi hành vi back mặc định
+            if (binding.progressBarUpload.getVisibility() == View.VISIBLE) {
+                // TODO: Show confirmation dialog to cancel upload if in progress
+                Log.w(TAG, "Back pressed during upload, consider adding cancel confirmation.");
+            }
+            finish();
             return true;
         }
         return super.onOptionsItemSelected(item);

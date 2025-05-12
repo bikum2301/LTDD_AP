@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    tools:context=".activity.MusicPlayerActivity">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbarMusicPlayer"
+        android:layout_width="0dp"
+        android:layout_height="?attr/actionBarSize"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:background="?attr/colorPrimary"
+        android:elevation="4dp"
+        app:titleTextColor="?attr/colorOnPrimary"
+        app:navigationIcon="?attr/homeAsUpIndicator"
+        app:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"/>
+
+    <ImageView
+        android:id="@+id/ivMusicPlayerArtwork"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="24dp"
+        android:scaleType="fitCenter"
+        android:background="@color/placeholder_color_dark"
+        app:layout_constraintTop_toBottomOf="@+id/toolbarMusicPlayer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/tvMusicPlayerTitle"
+        app:layout_constraintDimensionRatio="1:1"
+        tools:srcCompat="@drawable/ic_default_music_artwork"
+        android:contentDescription="Album Artwork" />
+
+    <TextView
+        android:id="@+id/tvMusicPlayerTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:gravity="center_horizontal"
+        android:textAppearance="?attr/textAppearanceHeadline6"
+        android:textColor="?attr/colorOnSurface"
+        app:layout_constraintBottom_toTopOf="@+id/tvMusicPlayerArtist"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="Tên Bài Hát Rất Dài Và Ấn Tượng" />
+
+    <TextView
+        android:id="@+id/tvMusicPlayerArtist"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:gravity="center_horizontal"
+        android:textAppearance="?attr/textAppearanceSubtitle1"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        app:layout_constraintBottom_toTopOf="@+id/exoPlayerControlsMusic"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="Tên Nghệ Sĩ" />
+
+    <com.google.android.exoplayer2.ui.StyledPlayerControlView
+        android:id="@+id/exoPlayerControlsMusic"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:background="?attr/colorSurfaceContainerLowest"
+        android:layout_marginBottom="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+
+        app:show_timeout="0"
+        app:show_shuffle_button="true"
+        app:show_rewind_button="false"
+    app:show_fastforward_button="false"
+    app:show_previous_button="true"
+    app:show_next_button="true"
+    app:bar_height="60dp"
+    app:played_color="?attr/colorPrimary"
+    app:scrubber_color="?attr/colorPrimaryVariant"
+    app:buffered_color="#A0FFFFFF"
+    app:unplayed_color="#60FFFFFF"
+    app:ad_marker_color="@android:color/holo_red_light"
+    app:played_ad_marker_color="@android:color/holo_blue_light"
+    />
+
+    <ProgressBar
+        android:id="@+id/progressBarMusicPlayer"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="@+id/ivMusicPlayerArtwork"
+        app:layout_constraintBottom_toBottomOf="@+id/ivMusicPlayerArtwork"
+        app:layout_constraintStart_toStartOf="@+id/ivMusicPlayerArtwork"
+        app:layout_constraintEnd_toEndOf="@+id/ivMusicPlayerArtwork"
+        tools:visibility="visible" />
+
+    <LinearLayout
+        android:id="@+id/layoutMusicPlayerError"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="16dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@+id/toolbarMusicPlayer"
+        app:layout_constraintBottom_toTopOf="@+id/exoPlayerControlsMusic"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:visibility="visible">
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_error_outline_24"
+            app:tint="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="8dp"
+            android:contentDescription="Error Icon"/>
+        <TextView
+            android:id="@+id/tvMusicPlayerErrorMessage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="16sp"
+            android:textAlignment="center"
+            tools:text="Could not play music. Please try again." />
+        <Button
+            android:id="@+id/btnMusicPlayerRetry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Retry" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
